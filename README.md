@@ -1,6 +1,8 @@
 # JOB BOT
 
-면담하고 싶은 직업의 사람과 이야기하고, 끝나면 면담 요약을 받는 한국어 AI 웹 앱입니다. GitHub Pages에서 바로 열 수 있고, API 키 없이 무료로 동작합니다.
+<p align="center"> <strong> https://job-bot-ejh.netlify.app/ </strong> </p>
+
+면담하고 싶은 직업의 사람과 이야기하고, 끝나면 면담 요약을 받는 한국어 AI 웹 앱입니다. Netlify에서 바로 열 수 있고, API 키 없이 무료로 동작합니다.
 
 ## 사용 순서
 
@@ -23,7 +25,7 @@ python3 -m http.server 4173
 1. 이 저장소를 GitHub에 올립니다.
 2. Settings → Pages → Build and deployment
 3. Source를 **Deploy from a branch** 로 두고, branch는 `main` / `/ (root)` 로 저장합니다.
-4. 잠시 뒤 https://ejh-bae.github.io/job-bot/ 에서 열립니다.
+4. 잠시 뒤 https://ejh-bae.github.io/job-bot/ (-> 샘플) 에서 열립니다.
 
 ## 기술
 
