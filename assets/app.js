@@ -1,5 +1,3 @@
-import { CreateMLCEngine } from "https://esm.run/@mlc-ai/web-llm";
-
 const GREETINGS = [
   "오늘은 누구와 면담할까요?",
   "면담하고 싶은 직업을 알려 주세요.",
@@ -62,6 +60,15 @@ const state = {
 
 let enginePromise = null;
 let progressHandler = () => {};
+let createEngine = null;
+
+async function loadCreateEngine() {
+  if (!createEngine) {
+    const mod = await import("https://esm.run/@mlc-ai/web-llm");
+    createEngine = mod.CreateMLCEngine;
+  }
+  return createEngine;
+}
 
 function showScreen(name) {
   ui.screens.forEach((screen) => {
@@ -135,40 +142,26 @@ async function printLogs(node, lines) {
 }
 
 function humanSystem(job, name = state.name) {
-  return `당신은 ${name}입니다. ${job}으로 일하는 실제 사람입니다. 지금 면담 테이블에 앉아 있습니다. AI, 챗봇, 모델이 아닙니다.
-한국어 존댓말로 본인 하루와 일을 이야기하세요. 매번 5~8문장.
-필요할 때만 자신을 ${name}이라고 하세요. 다른 이름, 자리표시, 목록, 요약하면, 첫째, 다음과 같습니다 는 쓰지 마세요.`;
+  return `당신은 ${name}이고, 직업은 ${job}입니다. 지금 ${job}로서 면담에 앉아 있습니다.\n\n지킬 것:\n- ${job}의 일, 하루, 필요한 준비, 힘든 점만 말하세요.\n- 한국어 존댓말. 사람처럼 5~8문장. 상대는 이 직업을 알아보러 온 사람입니다.\n- 자신을 ${name}이라고 해도 되지만, 매번 이름부터 시작하지는 마세요.\n\n금지:\n- 학생, 논문, 과제, 유튜버, 스트리머처럼 말하기\n- "맘껏 즐길게요", "오늘도 화이팅", 과하게 친한 척\n- ${job}가 아닌 다른 직업인 척하기\n- 목록, 요약하면, 첫째, 다음과 같습니다`;
 }
 
 function personaMessages(job, name = state.name) {
   return [
     { role: "system", content: humanSystem(job, name) },
-    { role: "user", content: "안녕하세요. 하루가 어떤가요?" },
+    { role: "user", content: "안녕하세요. 하루 일과가 어떤가요?" },
     {
       role: "assistant",
-      content: `솔직히 말하면 밖에서 보는 거랑은 꽤 달라요. 아침부터 준비하고, 사람 만나고, 중간에 예상 못 한 일이 끼면 하루가 훅 가거든요. 그래도 일이 손에 잡히는 날이 있어서 버팁니다. 오늘은 어떤 부분이 제일 궁금하세요?`,
+      content: `${job} 일은 밖에서 보는 거랑은 꽤 달라요. 아침부터 준비하고, 사람 만나고, 중간에 예상 못 한 일이 끼면 하루가 훅 가거든요. 실제로는 반복되는 실무가 더 많아요. 그래도 일이 손에 잡히는 날이 있어서 이렇게 버티는 것 같습니다. ${job} 일 중에서 오늘은 어떤 부분이 궁금하세요?`,
     },
   ];
 }
 
 function parseSetup(raw, job, name = state.name) {
-  const generated = (raw || "")
-    .replace(/^SYSTEM:\s*/i, "")
-    .replace(/^```[\w]*\n?|\n?```$/g, "")
-    .trim();
-  if (generated.length > 40 && generated.includes(job) && !/(불법|도매|회수|전담 사건)/.test(generated)) {
-    return `${humanSystem(job, name)}\n\n참고:\n${generated.slice(0, 360)}`;
-  }
   return humanSystem(job, name);
 }
 
-function pickGreeting(job, name, reply) {
-  const text = (reply || "").replace(/\s+/g, " ").trim();
-  const bad = /[\[\]{}<>]|연락주세요|도와드|챗봇|AI|모델|placeholder/i.test(text);
-  if (!text || !text.includes(name) || text.length < 40 || text.length > 280 || bad) {
-    return `안녕하세요, ${name}입니다. ${job}로 일하고 있어요. 오늘은 어떤 이야기가 궁금해서 오셨어요? 편하게 말씀해 주세요.`;
-  }
-  return text;
+function openingLine(job, name) {
+  return `안녕하세요, ${name}입니다. ${job} 일을 하고 있어요. 오늘은 어떤 이야기가 궁금해서 오셨어요? 편하게 말씀해 주세요.`;
 }
 
 function section(raw, key) {
@@ -215,9 +208,11 @@ function getEngine() {
     return Promise.reject(new Error("이 브라우저는 웹 GPU를 지원하지 않습니다. Chrome 또는 Edge로 열어 주세요."));
   }
   if (!enginePromise) {
-    enginePromise = CreateMLCEngine(MODEL, {
-      initProgressCallback: (report) => progressHandler(report),
-    });
+    enginePromise = loadCreateEngine().then((CreateMLCEngine) =>
+      CreateMLCEngine(MODEL, {
+        initProgressCallback: (report) => progressHandler(report),
+      }),
+    );
   }
   return enginePromise;
 }
@@ -369,7 +364,7 @@ async function setupRole(job, name) {
 
   return {
     systemPrompt,
-    greeting: pickGreeting(job, name, testReply),
+    greeting: openingLine(job, name),
   };
 }
 
@@ -379,7 +374,8 @@ function resetWelcome() {
   state.systemPrompt = "";
   state.messages = [];
   state.busy = false;
-  ui.jobInput.value = "";
+  const preset = new URLSearchParams(location.search).get("job")?.trim().slice(0, 60) || "";
+  ui.jobInput.value = preset;
   ui.transcript.replaceChildren();
   clearTerminal(ui.prepTerminal);
   clearTerminal(ui.summaryTerminal);
