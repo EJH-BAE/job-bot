@@ -17,7 +17,7 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
     />
-    <link rel="stylesheet" href="./assets/styles.css" />
+    <link rel="stylesheet" href="./assets/styles.css?v=named-2" />
   </head>
   <body>
     <div class="paper" aria-hidden="true"></div>
@@ -36,8 +36,8 @@
       <main class="stage" id="app">
         <section class="screen is-active" id="screen-welcome" data-screen="welcome">
           <div class="welcome-copy">
-            <h1 class="greeting" id="greeting"></h1>
-            <form class="job-form" id="job-form" autocomplete="off">
+            <h1 class="greeting" id="greeting">면담하고 싶은 직업을 알려 주세요.</h1>
+            <form class="job-form" id="job-form" autocomplete="off" action="#" method="post">
               <label for="job-input">면담하고 싶은 직업:</label>
               <input
                 id="job-input"
@@ -100,6 +100,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="./assets/app.js"></script>
+    <script type="module" src="./assets/app.js?v=named-2"></script>
   </body>
 </html>
