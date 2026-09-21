@@ -31,3 +31,7 @@ python3 -m http.server 4173
 - 텍스트 생성: 브라우저에서 동작하는 [WebLLM](https://github.com/mlc-ai/web-llm) + Qwen2.5
 - API 키와 서버가 필요 없습니다. 첫 방문 때 모델이 기기에 내려받아집니다.
 - Chrome 또는 Edge를 권장합니다.
+
+## 링크
+
+완전한 면담 페이지는 Netlify에서 작동합니다. [LINK](https://job-bot-ejh.netlify.app/)
