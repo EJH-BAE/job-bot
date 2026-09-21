@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="원하는 직업이 되어 대화하고, 면담 요약을 받는 무료 AI 웹 앱" />
+    <meta name="description" content="면담하고 싶은 직업의 사람과 이야기하고, 면담 요약을 받는 무료 AI 웹 앱" />
     <title>JOB BOT</title>
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" />
@@ -38,7 +38,7 @@
           <div class="welcome-copy">
             <h1 class="greeting" id="greeting"></h1>
             <form class="job-form" id="job-form" autocomplete="off">
-              <label for="job-input">원하는 직업:</label>
+              <label for="job-input">면담하고 싶은 직업:</label>
               <input
                 id="job-input"
                 name="job"
@@ -55,14 +55,15 @@
         <section class="screen screen-prep" id="screen-preparing" data-screen="preparing" hidden>
           <div class="prep-head">
             <p class="status-kicker" id="prep-kicker">준비 중...</p>
-            <h2 class="status-title" id="prep-title">역할을 만들고 있습니다</h2>
-            <ol class="steps" id="prep-steps" aria-live="polite">
+            <h2 class="status-title" id="prep-title">면담을 준비하고 있습니다</h2>
+            <p class="load-status" id="load-status"></p>
+            <ol class="steps" id="prep-steps" aria-live="polite" hidden>
               <li data-step="prompt">역할 프롬프트 작성</li>
               <li data-step="test">응답 확인</li>
               <li data-step="ui">채팅 준비</li>
             </ol>
           </div>
-          <div class="terminal" id="prep-terminal" aria-live="polite"></div>
+          <div class="terminal" id="prep-terminal" aria-live="polite" hidden></div>
         </section>
 
         <section class="screen screen-chat" id="screen-chat" data-screen="chat" hidden>
@@ -73,7 +74,7 @@
               id="chat-input"
               rows="1"
               maxlength="2000"
-              placeholder="질문을 입력하세요"
+              placeholder="편하게 물어보세요"
               required
             ></textarea>
             <button type="submit" class="btn btn-primary" id="send-btn">보내기</button>
