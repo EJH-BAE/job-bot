@@ -18,10 +18,10 @@ const ui = {
   jobInput: document.getElementById("job-input"),
   prepKicker: document.getElementById("prep-kicker"),
   prepTitle: document.getElementById("prep-title"),
-  prepProgress: document.getElementById("prep-progress"),
-  prepBar: document.getElementById("prep-bar"),
   prepSteps: document.getElementById("prep-steps"),
-  chatJob: document.getElementById("chat-job"),
+  prepTerminal: document.getElementById("prep-terminal"),
+  summaryTerminal: document.getElementById("summary-terminal"),
+  topbarJob: document.getElementById("topbar-job"),
   transcript: document.getElementById("transcript"),
   chatForm: document.getElementById("chat-form"),
   chatInput: document.getElementById("chat-input"),
@@ -50,6 +50,12 @@ function showScreen(name) {
     screen.toggleAttribute("inert", !active);
     screen.setAttribute("aria-hidden", active ? "false" : "true");
   });
+
+  const inChat = name === "chat";
+  const showJob = name === "chat" || name === "summarizing" || name === "summary";
+  ui.endBtn.hidden = !inChat;
+  ui.topbarJob.hidden = !showJob;
+  if (showJob) ui.topbarJob.textContent = state.job;
 }
 
 function setPrepStep(current) {
@@ -60,6 +66,30 @@ function setPrepStep(current) {
     item.classList.toggle("is-current", step === current);
     item.classList.toggle("is-done", order.indexOf(step) < index);
   });
+}
+
+function clearTerminal(node) {
+  node.replaceChildren();
+}
+
+function termCommand(node, name) {
+  const line = document.createElement("div");
+  line.className = "term-cmd";
+  line.textContent = `--${name}--`;
+  node.appendChild(line);
+  node.scrollTop = node.scrollHeight;
+}
+
+function termBlock(node) {
+  const out = document.createElement("div");
+  out.className = "term-out";
+  node.appendChild(out);
+  return out;
+}
+
+function termSet(out, text, scroller) {
+  out.textContent = text;
+  scroller.scrollTop = scroller.scrollHeight;
 }
 
 function renderMarkdown(text) {
@@ -87,39 +117,36 @@ function addBubble(role, content, pending = false) {
   return bubble;
 }
 
-function fallbackSystem(job, extras = {}) {
-  const years = extras.years || "여러 해";
-  const focus = extras.focus || "현장 실무";
-  const tone = extras.tone || "차분하고 친절한 존댓말";
-  return `당신은 '${job}'입니다. 경력 ${years}년차 실무 전문가처럼 대화하세요.
-전문 분야: ${focus}
-말투: ${tone}
+function fallbackSystem(job) {
+  return `당신은 '${job}'입니다. 그 직업의 일반적인 실무 전문가처럼 대화하세요.
 
 규칙:
-- 한국어로만 답합니다.
-- 맡은 직업의 실제 업무만 말하고, 다른 직업과 섞지 않습니다.
-- 2~6문장으로, 구체적인 예시나 실무 팁을 넣습니다.
+- 한국어 존댓말만 사용합니다.
+- 특이한 세부 전공, 사건명, 상품명을 지어내지 않습니다.
+- 맡은 직업의 실제 업무만 말하고 다른 직업과 섞지 않습니다.
+- 2~5문장으로, 구체적이되 과장하지 않습니다.
 - 모르는 내용은 지어내지 않습니다.
-- 위험하거나 불법적인 요청은 정중히 거절합니다.
-- 필요하면 상황을 한 가지만 되묻습니다.`;
+- 위험하거나 불법적인 요청은 정중히 거절합니다.`;
 }
 
 function parseSetup(raw, job) {
-  const years = raw.match(/YEARS:\s*([^\n]+)/i)?.[1]?.trim();
-  const focus = raw.match(/FOCUS:\s*([^\n]+)/i)?.[1]?.trim();
-  const tone = raw.match(/TONE:\s*([^\n]+)/i)?.[1]?.trim();
-  const greeting = raw.match(/GREETING:\s*([\s\S]*)$/i)?.[1]?.trim();
-  const systemMatch = raw.match(/SYSTEM:\s*([\s\S]*?)(?:\nGREETING:|$)/i);
-  const extras = {
-    years: years && years.length < 20 ? years : "",
-    focus: focus && focus.length < 80 ? focus : "",
-    tone: tone && tone.length < 80 ? tone : "",
-  };
-  const generated = (systemMatch?.[1] || "").trim();
-  const systemPrompt = generated.length > 50 && generated.includes(job)
-    ? `${fallbackSystem(job, extras)}\n\n역할 메모:\n${generated.slice(0, 600)}`
-    : fallbackSystem(job, extras);
-  return { systemPrompt, greeting };
+  const generated = raw
+    .replace(/^SYSTEM:\s*/i, "")
+    .replace(/^```[\w]*\n?|\n?```$/g, "")
+    .trim();
+  if (generated.length > 40 && generated.includes(job)) {
+    return `${fallbackSystem(job)}\n\n역할 메모:\n${generated.slice(0, 500)}`;
+  }
+  return fallbackSystem(job);
+}
+
+function pickGreeting(job, reply) {
+  const text = (reply || "").trim();
+  const invented = /(불법|도매|회수|사건|전담|전용 상품)/.test(text);
+  if (text && text.includes(job) && text.length <= 220 && !invented) {
+    return text;
+  }
+  return `안녕하세요. ${job}입니다. 궁금한 점을 편하게 물어보세요.`;
 }
 
 function wait(ms) {
@@ -138,11 +165,11 @@ function getEngine() {
   return enginePromise;
 }
 
-async function complete({ messages, stream = false, onChunk, maxTokens = 512 }) {
+async function complete({ messages, stream = false, onChunk, maxTokens = 400 }) {
   const engine = await getEngine();
   const request = {
     messages,
-    temperature: 0.7,
+    temperature: 0.5,
     max_tokens: maxTokens,
     stream,
   };
@@ -165,63 +192,71 @@ async function complete({ messages, stream = false, onChunk, maxTokens = 512 }) 
 }
 
 async function setupRole(job) {
+  const term = ui.prepTerminal;
+  clearTerminal(term);
+
+  termCommand(term, "loading model");
+  const loadOut = termBlock(term);
   progressHandler = (report) => {
     const percent = Math.round((report.progress || 0) * 100);
     const done = percent >= 100 || /finish/i.test(report.text || "");
-    ui.prepProgress.textContent = done
-      ? "모델 준비 완료"
-      : `모델을 불러오는 중${Number.isFinite(percent) ? ` (${percent}%)` : ""}`;
-    if (ui.prepBar) {
-      ui.prepBar.hidden = done || percent <= 0;
-      ui.prepBar.querySelector("span").style.width = `${Math.min(Math.max(percent, 0), 100)}%`;
-    }
+    termSet(loadOut, done ? "done" : `${percent}%`, term);
   };
 
   await getEngine();
-  ui.prepProgress.textContent = "";
-  if (ui.prepBar) ui.prepBar.hidden = true;
+  termSet(loadOut, "done", term);
 
   setPrepStep("prompt");
+  termCommand(term, "creating system prompt");
+  const promptOut = termBlock(term);
   const raw = await complete({
-    maxTokens: 700,
+    maxTokens: 280,
+    stream: true,
+    onChunk: (text) => termSet(promptOut, text, term),
     messages: [
       {
         role: "system",
-        content:
-          "당신은 역할극 봇을 설정하는 도우미입니다. 요청한 출력 형식만 지키고, 다른 설명은 쓰지 마세요.",
+        content: "역할극용 시스템 프롬프트만 짧게 작성합니다. 설명 없이 본문만 출력합니다.",
       },
       {
         role: "user",
         content: `직업: ${job}
 
-아래 네 줄 형식으로만, 한국어로 짧게 채우세요.
-YEARS: (숫자)
-FOCUS: (전문 분야 한 줄)
-TONE: (말투 한 줄)
-GREETING: (그 직업의 전문가로서 2~4문장 첫 인사)`,
+일반적이고 평범한 ${job} 역할의 시스템 프롬프트를 한국어 6줄 이내로 작성하세요.
+- 특이한 세부 전공, 사건, 상품, 회사명을 만들지 마세요.
+- '${job}'라는 직업 자체로만 설정하세요.`,
       },
     ],
   });
 
+  const systemPrompt = parseSetup(raw, job);
+  termSet(promptOut, systemPrompt, term);
+
   setPrepStep("test");
-  const parsed = parseSetup(raw, job);
+  termCommand(term, "testing response");
+  const testOut = termBlock(term);
   const testReply = await complete({
-    maxTokens: 180,
+    maxTokens: 120,
+    stream: true,
+    onChunk: (text) => termSet(testOut, text, term),
     messages: [
-      { role: "system", content: parsed.systemPrompt },
-      { role: "user", content: "맡은 직업으로 자기소개와 오늘 도와줄 수 있는 것을 2~4문장으로 인사하세요." },
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: `첫 인사만 하세요. 반드시 "안녕하세요. ${job}입니다."로 시작하세요. 이어서 무엇을 도와줄 수 있는지 한 문장만 덧붙이세요. 세부 전공을 만들지 마세요.`,
+      },
     ],
   });
 
-  if (!testReply) {
-    throw new Error("역할 응답을 확인하지 못했습니다.");
-  }
-
   setPrepStep("ui");
-  await wait(400);
+  termCommand(term, "preparing chat ui");
+  const uiOut = termBlock(term);
+  termSet(uiOut, "ready", term);
+  await wait(350);
+
   return {
-    systemPrompt: parsed.systemPrompt,
-    greeting: testReply || parsed.greeting || `안녕하세요. ${job}입니다. 무엇을 도와드릴까요?`,
+    systemPrompt,
+    greeting: pickGreeting(job, testReply),
   };
 }
 
@@ -232,6 +267,11 @@ function resetWelcome() {
   state.busy = false;
   ui.jobInput.value = "";
   ui.transcript.replaceChildren();
+  clearTerminal(ui.prepTerminal);
+  clearTerminal(ui.summaryTerminal);
+  ui.prepSteps.querySelectorAll("li").forEach((item) => {
+    item.classList.remove("is-current", "is-done");
+  });
   ui.greeting.textContent = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
   showScreen("welcome");
   ui.jobInput.focus();
@@ -242,11 +282,11 @@ ui.jobForm.addEventListener("submit", async (event) => {
   const job = ui.jobInput.value.trim();
   if (!job || state.busy) return;
 
+  ui.jobForm.querySelector(".error")?.remove();
   state.busy = true;
   state.job = job;
   ui.prepKicker.textContent = "준비 중...";
   ui.prepTitle.textContent = `${job} 역할을 만들고 있습니다`;
-  ui.prepProgress.textContent = "모델을 준비하고 있습니다.";
   showScreen("preparing");
   setPrepStep("prompt");
 
@@ -254,7 +294,6 @@ ui.jobForm.addEventListener("submit", async (event) => {
     const setup = await setupRole(job);
     state.systemPrompt = setup.systemPrompt;
     state.messages = [{ role: "assistant", content: setup.greeting }];
-    ui.chatJob.textContent = job;
     ui.transcript.replaceChildren();
     addBubble("bot", setup.greeting);
     showScreen("chat");
@@ -273,7 +312,7 @@ ui.jobForm.addEventListener("submit", async (event) => {
 
 ui.chatInput.addEventListener("input", () => {
   ui.chatInput.style.height = "auto";
-  ui.chatInput.style.height = `${Math.min(ui.chatInput.scrollHeight, 140)}px`;
+  ui.chatInput.style.height = `${Math.min(ui.chatInput.scrollHeight, 128)}px`;
 });
 
 ui.chatInput.addEventListener("keydown", (event) => {
@@ -328,14 +367,19 @@ ui.endBtn.addEventListener("click", async () => {
   if (state.busy) return;
   state.busy = true;
   showScreen("summarizing");
+  clearTerminal(ui.summaryTerminal);
+  termCommand(ui.summaryTerminal, "writing summary");
+  const out = termBlock(ui.summaryTerminal);
 
   try {
     const summary = await complete({
-      maxTokens: 700,
+      maxTokens: 500,
+      stream: true,
+      onChunk: (text) => termSet(out, text, ui.summaryTerminal),
       messages: [
         {
           role: "system",
-          content: "당신은 면담 기록을 깔끔하게 정리하는 한국어 요약가입니다. 마크다운으로만 답하세요.",
+          content: "면담 기록을 한국어 마크다운으로만 짧게 정리하세요. 없는 내용은 만들지 마세요.",
         },
         {
           role: "user",
@@ -344,9 +388,7 @@ ui.endBtn.addEventListener("click", async () => {
 대화:
 ${state.messages.map((item) => `${item.role === "user" ? "사용자" : "전문가"}: ${item.content}`).join("\n") || "(대화 없음)"}
 
-아래 형식으로 면담 요약을 작성하세요.
-# 면담 요약
-## 직업
+형식:
 ## 대화 개요
 ## 주요 질문과 답변
 ## 핵심 조언
