@@ -2,7 +2,7 @@
 
 면담하고 싶은 직업의 사람과 이야기하고, 끝나면 면담 요약을 받는 한국어 웹 앱입니다.
 
-사이트: https://ejh-bae.github.io/job-bot/
+사이트: https://gpt--job-bot-ejh.netlify.app/
 
 ## 사용 순서
 
