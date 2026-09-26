@@ -17,18 +17,19 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
     />
-    <link rel="stylesheet" href="./assets/styles.css?v=named-2" />
+    <link rel="stylesheet" href="./assets/styles.css?v=pages-1" />
   </head>
   <body>
     <div class="paper" aria-hidden="true"></div>
     <div class="shell">
       <header class="topbar">
-        <div class="brand">
+        <button type="button" class="brand" id="home-btn">
           <span class="brand-mark" aria-hidden="true"></span>
           <span>JOB BOT</span>
-        </div>
+        </button>
         <div class="topbar-meta">
           <span class="topbar-job" id="topbar-job" hidden></span>
+          <button type="button" class="btn btn-ghost" id="history-btn">기록</button>
           <button type="button" class="btn btn-ghost" id="end-btn" hidden>종료</button>
         </div>
       </header>
@@ -38,17 +39,26 @@
           <div class="welcome-copy">
             <h1 class="greeting" id="greeting">면담하고 싶은 직업을 알려 주세요.</h1>
             <form class="job-form" id="job-form" autocomplete="off" action="#" method="post">
-              <label for="job-input">면담하고 싶은 직업:</label>
-              <input
-                id="job-input"
-                name="job"
-                type="text"
-                maxlength="60"
-                placeholder="예: 변호사, 요리사, 프로덕트 매니저"
-                required
-              />
-              <button type="submit" class="btn btn-primary">시작하기</button>
+              <label for="job-input">면담하고 싶은 직업</label>
+              <div class="job-row">
+                <input
+                  id="job-input"
+                  name="job"
+                  type="text"
+                  maxlength="60"
+                  placeholder="예: 변호사, 요리사, 프로덕트 매니저"
+                  required
+                />
+                <button type="submit" class="btn btn-primary" id="start-btn">시작하기</button>
+              </div>
             </form>
+            <section class="history" id="history-panel" hidden>
+              <div class="history-head">
+                <h2>지난 면담</h2>
+                <p>종료하거나 차단된 면담이 여기에 남습니다.</p>
+              </div>
+              <ul class="history-list" id="history-list"></ul>
+            </section>
           </div>
         </section>
 
@@ -85,14 +95,14 @@
           <div class="prep-head">
             <p class="status-kicker">준비 중...</p>
             <h2 class="status-title">면담을 정리하고 있습니다</h2>
-            <p class="status-copy">대화의 핵심만 골라 요약할게요.</p>
+            <p class="status-copy">질문과 응답을 나누고 해석을 남기고 있습니다.</p>
           </div>
           <div class="terminal" id="summary-terminal" aria-live="polite"></div>
         </section>
 
         <section class="screen screen-summary" id="screen-summary" data-screen="summary" hidden>
           <div class="summary-scroll">
-            <p class="summary-kicker">면담 요약</p>
+            <p class="summary-kicker" id="summary-kicker">면담 요약</p>
             <h2 class="summary-job" id="summary-job"></h2>
             <article class="summary-card" id="summary-card"></article>
           </div>
@@ -100,6 +110,6 @@
         </section>
       </main>
     </div>
-    <script type="module" src="./assets/app.js?v=named-3"></script>
+    <script type="module" src="./assets/app.js?v=pages-1"></script>
   </body>
 </html>
